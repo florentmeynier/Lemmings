@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fd9270d97df9a69a09a1ad3c421ef066f508df53cf668b63d381df0c2946f398
+-- hash: 5f10f5cd61922fefbf46da74ae3a6c199a6f1918924ab12b1b99a91986e5fb4c
 
 name:           minijeu
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
       GameManager
       Keyboard
       Lemming
+      Map
       Model
       Mouse
       Movement
