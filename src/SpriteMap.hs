@@ -3,14 +3,21 @@ module SpriteMap where
 import Data.Map.Strict (Map)
 import qualified Data.Map as M
 
+import SDL
+
 import Sprite (Sprite)
 import qualified Sprite as S
+
+import TextureMap (TextureMap, TextureId (..))
+import qualified TextureMap as TM
 
 newtype SpriteId = SpriteId String
   deriving (Eq, Ord)
 
 instance Show SpriteId where
   show (SpriteId id) = show id
+
+
 
 type SpriteMap = Map SpriteId Sprite
 
@@ -40,3 +47,11 @@ removeSprite sid smap = case M.lookup sid smap of
                           Nothing -> error $ "removeSprite - No such sprite '" <> (show sid) <> "' in sprite map."
                           Just _ -> M.delete sid smap
 
+loadSprite :: Renderer -> FilePath -> String -> TextureMap -> SpriteMap -> Int -> Int -> IO (TextureMap, SpriteMap)
+loadSprite rdr path spriteId tmap smap h l = do
+  let h' = fromIntegral h
+  let l' = fromIntegral l
+  tmap' <- TM.loadTexture rdr path (TextureId spriteId) tmap
+  let sprite = S.defaultScale $ S.addImage S.createEmptySprite $ S.createImage (TextureId spriteId) (S.mkArea 0 0 l' h')
+  let smap' = addSprite (SpriteId spriteId) sprite smap
+  return (tmap', smap')

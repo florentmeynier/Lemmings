@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5f10f5cd61922fefbf46da74ae3a6c199a6f1918924ab12b1b99a91986e5fb4c
+-- hash: 4a32eee17f70d2e2393262daaf15653136fde502d8b4a49b02bac68e6b10fbec
 
 name:           minijeu
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      File
       GameManager
       Keyboard
       Lemming

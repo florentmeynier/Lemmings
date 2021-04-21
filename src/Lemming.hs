@@ -2,34 +2,43 @@ module Lemming where
 
 import Movement
 
-data Characters = Lemming 
+data Characters = Marcheur State | Tombeur State Int Characters | Mort State
+    deriving (Eq, Show)
 
-data State = State {  coord :: Coord
-                    , direction :: Deplacement 
-                    , speed :: Int 
-                   }
-                   deriving(Eq, Show)
+data State = State { coord :: Coord ,
+                     direction :: Deplacement  ,
+                     speed :: Int 
+                    }
+                    deriving(Eq, Show)
 
-initState :: Int -> Int -> Deplacement -> Int  -> State
-initState x y d s = State (C x y) d s 
+initState :: Int -> Int -> Deplacement -> Int -> State
+initState x y d s = State (C x y) d s
 
-gameStepL2 :: State -> State
-gameStepL2 st@(State c@(C x y) d s) = aux st s where
-    aux :: State -> Int -> State
-    aux st@(State c@(C x y) d s) n
-        | n > 0 && canMove2 st = aux (State (bougeCoord d c) d s) (n - 1)
-        | n > 0 && d == G = aux (State c D s) (n - 1) 
-        | n > 0 && d == D = aux (State c G s) (n - 1)
-        | otherwise = st
+initChar = Marcheur (initState 30 30 G 2)
+initChar2 = Tombeur (initState 5 4 B 1) 0 initChar
 
-canMove2 :: State -> Bool 
-canMove2 st@(State c@(C x y) d s)
-    | d == G && x > 0 = True
-    | d == D && x < 640 = True
-    | d == H && y > 0 = True
-    | d == B && y < 480 = True 
-    | d == GH && x > 0 && y > 0 = True
-    | d == GB && x > 0 && y < 480 = True 
-    | d == DH && x < 640 && y > 0 = True
-    | d == DB && x < 640 && y < 480 = True 
-    | otherwise = False
+getState :: Characters -> State
+getState (Marcheur st) = st
+getState (Tombeur st _ _) = st
+getState (Mort st) = st
+
+getCoordX :: Characters -> Int
+getCoordX c = getX (getCoordonnee c)
+
+getCoordY :: Characters -> Int
+getCoordY c = getY (getCoordonnee c)
+
+getCoordonnee :: Characters -> Coord
+getCoordonnee ch = do
+    let State c _ _ = getState ch
+    c
+
+getDirection :: Characters -> Deplacement
+getDirection ch = do
+    let State _ d _ = getState ch
+    d
+
+getSpeed :: Characters -> Int
+getSpeed ch = do
+    let State _ _ s = getState ch
+    s

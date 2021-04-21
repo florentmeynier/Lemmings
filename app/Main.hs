@@ -51,7 +51,7 @@ import Map
 import GameManager (Game)
 import qualified GameManager as GM
 
-loadBackground :: Renderer-> FilePath -> TextureMap -> SpriteMap -> IO (TextureMap, SpriteMap)
+loadBackground :: Renderer -> FilePath -> TextureMap -> SpriteMap -> IO (TextureMap, SpriteMap)
 loadBackground rdr path tmap smap = do
   tmap' <- TM.loadTexture rdr path (TextureId "background") tmap
   let sprite = S.defaultScale $ S.addImage S.createEmptySprite $ S.createImage (TextureId "background") (S.mkArea 0 0 640 480)
@@ -61,9 +61,17 @@ loadBackground rdr path tmap smap = do
 loadGround :: Renderer -> FilePath -> TextureMap -> SpriteMap -> Int -> IO (TextureMap, SpriteMap)
 loadGround rdr path tmap smap size = do
   let size' = fromIntegral size
-  tmap' <- TM.loadTexture rdr path (TextureId "ground") tmap
-  let sprite = S.defaultScale $ S.addImage S.createEmptySprite $ S.createImage (TextureId "ground") (S.mkArea 0 0 size' size')
-  let smap' = SM.addSprite (SpriteId "ground") sprite smap
+  tmap' <- TM.loadTexture rdr path (TextureId "metal") tmap
+  let sprite = S.defaultScale $ S.addImage S.createEmptySprite $ S.createImage (TextureId "metal") (S.mkArea 0 0 size' size')
+  let smap' = SM.addSprite (SpriteId "metal") sprite smap
+  return (tmap', smap')
+
+loadEntreeDoor :: Renderer -> FilePath -> TextureMap -> SpriteMap -> Int -> IO (TextureMap, SpriteMap)
+loadEntreeDoor rdr path tmap smap size = do
+  let size' = fromIntegral size
+  tmap' <- TM.loadTexture rdr path (TextureId "eDoor") tmap
+  let sprite = S.defaultScale $ S.addImage S.createEmptySprite $ S.createImage (TextureId "eDoor") (S.mkArea 0 0 size' size')
+  let smap' = SM.addSprite (SpriteId "eDoor") sprite smap
   return (tmap', smap')
 
 loadPerso :: Renderer-> FilePath -> TextureMap -> SpriteMap -> Int -> IO (TextureMap, SpriteMap)
@@ -85,20 +93,23 @@ main :: IO ()
 main = do
   initializeAll
   -- initialisation de la partie
-  let l = 32 :: Int
+  let l = 7 -- 32 :: Int
   let h = 24 :: Int
   let size = 20 :: Int
-  let game = GM.initGameManager h l size 20 50 Move.D 2
+  let game = GM.initGameManager h l size 20 50 Move.D 1
   window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral (h * size)) }
   renderer <- createRenderer window (-1) defaultRenderer
   -- chargement de l'image du fond
-  (tmap, smap) <- loadBackground renderer "assets/background.bmp" TM.createTextureMap SM.createSpriteMap
-  -- chargement du sol
-  (tmapG, smapG) <- loadGround renderer "assets/metal.bmp" tmap smap size
+  --(tmap, smap) <- loadBackground renderer "assets/background.bmp" TM.createTextureMap SM.createSpriteMap
+  (tmap, smap) <- SM.loadSprite renderer "assets/background.bmp" "background" TM.createTextureMap SM.createSpriteMap 480 640
+  -- chargement du metal
+  (tmap, smap) <- SM.loadSprite renderer "assets/metal.bmp" "metal" tmap smap size size
+  -- chargement de la terre
+  (tmap, smap) <- SM.loadSprite renderer "assets/terre.bmp" "terre" tmap smap size size
+  -- chargement de la porte
+  (tmap, smap) <- SM.loadSprite renderer "assets/eDoor.bmp" "eDoor" tmap smap size size
   -- chargement du personnage
-  (tmap1, smap2) <- loadPerso renderer "assets/perso.bmp" tmapG smapG size
-  -- chargement du virus
-  (tmap', smap') <- loadVirus renderer "assets/virus.bmp" tmap1 smap2
+  (tmap, smap) <- SM.loadSprite renderer "assets/perso.bmp" "perso" tmap smap size size
   -- initialisation de l'état du jeu
   vx <- R.randomRIO(0,640)
   vy <- R.randomRIO(0,480)
@@ -106,10 +117,10 @@ main = do
   -- initialisation de l'état du clavier
   let kbd = K.createKeyboard
   -- lancement de la gameLoop
-  gameLoop 60 renderer tmap' smap' kbd gameState game
+  gameLoop 60 renderer tmap smap kbd gameState game
 
 gameLoop :: (RealFrac a, Show a) => a -> Renderer -> TextureMap -> SpriteMap -> Keyboard -> GameState -> Game -> IO ()
-gameLoop frameRate renderer tmap smap kbd gameState gm@(GM.Game n@(Niveau h l size m) st@(L.State c@(Move.C x y) d s)) = do
+gameLoop frameRate renderer tmap smap kbd gameState gm = do
   startTime <- time
   events <- pollEvents
   let kbd' = K.handleEvents events kbd
@@ -120,20 +131,12 @@ gameLoop frameRate renderer tmap smap kbd gameState gm@(GM.Game n@(Niveau h l si
   --- display perso 
   --S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "perso") smap)
   --                               (fromIntegral (M.persoX gameState))
-  --                               (fromIntegral (M.persoY gameState)))
-  --- display virus 
-  S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "virus") smap)
-                                 (fromIntegral (M.virusX gameState))
-                                 (fromIntegral (M.virusY gameState)))
-  ---
-
-  S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "perso") smap)
-                                 (fromIntegral x)
-                                 (fromIntegral y))
+  --                               (fromIntegral (M.persoY gameState)))                        
 
   --S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "ground") smap)
                                 --50 50)
-
+ 
+  displayPerso renderer tmap smap gm
   displayMap renderer tmap smap gm
 
   present renderer
@@ -152,14 +155,30 @@ gameLoop frameRate renderer tmap smap kbd gameState gm@(GM.Game n@(Niveau h l si
   ---
   unless (K.keypressed KeycodeEscape kbd') (gameLoop frameRate renderer tmap smap kbd' gameState' gm')
 
+displayPerso :: Renderer -> TextureMap -> SpriteMap -> Game -> IO ()
+displayPerso renderer tmap smap (GM.Game _ lemmings) = head $ aux lemmings where
+  aux :: [L.Characters] -> [IO ()]
+  aux [] = [return ()]
+  aux (c:q) = S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "perso") smap)
+                                 (fromIntegral $ L.getCoordX c)
+                                 (fromIntegral $ L.getCoordY c)):aux q
+
 displayMap :: Renderer -> TextureMap -> SpriteMap -> Game -> IO ()
-displayMap renderer tmap smap gm@(GM.Game n@(Niveau h l size m) lemm) = aux (toList m) where
-  aux :: [(Coord, Case)] -> IO ()
-  aux [] = return ()
-  aux (h:q) = do
-    case h of
-      (Move.C x y, Metal) -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "ground") smap)
-                                (fromIntegral (size * x))
-                                (fromIntegral (size * y)))
-      _ -> aux q
-    aux q
+displayMap renderer tmap smap gm@(GM.Game n@(Niveau h l size m) lemm) =
+    aux (toList m)
+  where
+    aux :: [(Coord, Case)] -> IO ()
+    aux [] = return ()
+    aux (h:q) = do
+      case h of
+        (Move.C x y, Metal) -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "metal") smap)
+                                  (fromIntegral (size * x))
+                                  (fromIntegral (size * y)))
+        (Move.C x y, Entree) -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "eDoor") smap)
+                                  (fromIntegral (size * x))
+                                  (fromIntegral (size * y)))
+        (Move.C x y, Terre) -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "terre") smap)
+                                  (fromIntegral (size * x))
+                                  (fromIntegral (size * y)))
+        _ -> return ()
+      aux q

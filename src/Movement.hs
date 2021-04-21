@@ -14,6 +14,21 @@ data Deplacement = N
                   | DB 
     deriving(Show, Eq)
 
+getX :: Coord -> Int
+getX (C x _) = x
+
+getY :: Coord -> Int
+getY (C _ y) = y
+
+persoCoordToMapCoord :: Coord -> Int -> Coord
+persoCoordToMapCoord (C x y) size = C (x `div` size) (y `div` size)
+
+mapCoordToPersoCoord :: Coord -> Int -> Coord
+mapCoordToPersoCoord (C x y) size = C (x * size) (y * size)
+
+-- >>> persoCoordToMapCoord (C 15 23) 10
+-- C 1 2
+
 bougeCoord :: Deplacement -> Coord -> Coord
 bougeCoord N c = c 
 bougeCoord G (C x y) = C (x-1) y
