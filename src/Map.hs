@@ -20,6 +20,12 @@ data Niveau = Niveau { hNiveau :: Int,
                      }
     deriving (Eq)
 
+getSize :: Niveau -> Int
+getSize (Niveau _ _ size _) = size
+
+getMap :: Niveau -> Map Coord Case
+getMap (Niveau _ _ _ m) = m
+
 initNiveau :: Int -> Int -> Int -> Niveau
 initNiveau h l s = Niveau h l s (addEntreeSortie (generateMap h l))
 
@@ -33,7 +39,9 @@ generateMap h l = fromList (aux 0 0 []) where
         | otherwise = aux (x + 1) y ((C x y, Vide):list)
 
 addEntreeSortie :: Map Coord Case -> Map Coord Case
-addEntreeSortie m = insert (C 3 22) Terre (insert (C 1 1) Entree (insert (C 3 2) Sortie m))
+addEntreeSortie m = insert (C 4 15) Terre (insert (C 2 15) Terre (insert (C 5 14) Terre (insert (C 1 21) Terre (insert (C 2 22) Terre (insert (C 4 22) Terre
+    (insert (C 5 21) Terre (insert (C 6 20) Terre 
+    (insert (C 3 15) Terre (insert (C 1 1) Entree (insert (C 3 2) Sortie m))))))))))
 
 addGround :: Map Coord Case -> Map Coord Case
 addGround m = fromList (aux (toList m) 0 ) where

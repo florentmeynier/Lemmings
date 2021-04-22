@@ -93,7 +93,7 @@ main :: IO ()
 main = do
   initializeAll
   -- initialisation de la partie
-  let l = 7 -- 32 :: Int
+  let l = 8 -- 32 :: Int
   let h = 24 :: Int
   let size = 20 :: Int
   let game = GM.initGameManager h l size 20 50 Move.D 1
