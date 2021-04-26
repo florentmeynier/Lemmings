@@ -8,85 +8,184 @@ import Lemming
 
 import Movement
 
+data GameStatus = Pending | Playing | Win | Loose
+    deriving (Eq, Show)
+
+data InfoGame = InfoGame { 
+                            nbSpawn :: Int,
+                            nbExit :: Int,
+                            game_status :: GameStatus
+                         }
+    deriving (Eq, Show)
+
 data Game = Game { niveau :: Niveau,
-                   lemmings :: [Character]
+                   lemmings :: [Character],
+                   infoG :: InfoGame,
+                   clique :: Int
                  }
     deriving (Eq, Show)
 
+getLemmings :: Game -> [Character]
+getLemmings (Game _ l _ _) = l
 
-iNiv = initNiveau 24 8 20
+iNiv = initNiveau 24 10 20 5 5 5 30
 
 iMap = do
-    let Niveau _ _ _ m = iNiv
+    let Niveau _ _ _ m _ _ = iNiv
     m
 
-initGameManager :: Int -> Int -> Int -> Int -> Int -> Deplacement -> Int -> Game
-initGameManager h l size x y d s = Game (initNiveau h l size) [initChar]
+initInfoGame = InfoGame 0 0 Playing
 
-getFirstChar :: Game -> Character
-getFirstChar (Game n (h:q)) = h 
+initGameManager :: Int -> Int -> Int -> Deplacement -> Int -> Game
+initGameManager h l size d s = Game (initNiveau h l size 5 5 5 30) [] initInfoGame 0
 
-gameStepGM :: Game -> Game
-gameStepGM g@(Game n@(Niveau h l size m) lemm) = Game n (gameStepL g)
+gameStepGameManager :: Game -> Int -> Game
+gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _)) lemm infoG@(InfoGame nbSpawn nbExit gs) cl) tick =
+    let (lemm', n') = gameStepLemmings lemm n in -- Fait 1 tour tous les Lemmings
+    case spawnCharacter g tick of -- Vérifie si un nouveau Lemming doit apparaitre
+        Just c -> Game n' (c:lemm') (InfoGame (nbSpawn + 1) nbExit gs) cl -- Ajout du lemming + augmente le nombre total
+        Nothing -> Game n' lemm' infoG cl -- Ne fait rien
 
-gameStepL :: Game -> [Character]
-gameStepL g@(Game n@(Niveau h l size m) list) = aux1 list where
-    aux1 :: [Character] -> [Character]
-    aux1 [] = []
-    aux1 (l:q) = tourCharacter l n:aux1 q
 
-tourCharacter :: Character -> Niveau -> Character
-tourCharacter c n = 
-    case c of
-    Lemming st -> tourLemming c n (getSpeed c)
-    --Marcheur st -> tourMarcheur c m size (getSpeed l)
-    --Tombeur st d c -> tourTombeur c m size (getSpeed l)
-    --Mort st -> Mort st
+spawnCharacter :: Game -> Int -> Maybe Character
+spawnCharacter (Game n@(Niveau _ _ size _ _ (InfoNiveau delay max _ _)) lemm (InfoGame nbSpawn nbExit _) _) tick
+    | tick `mod` delay == 0 && nbSpawn < max = -- Ajout d'un nouveau Lemming
+        Just $ Lemming (Marcheur (State (mapCoordToPersoCoord (getEntree n) size) D 1))
+    | otherwise = Nothing -- N'ajoute pas de nouveau Lemming
+
+gameStepLemmings :: [Character] -> Niveau -> ([Character], Niveau)
+gameStepLemmings [] n = ([], n) 
+gameStepLemmings (l:q) n = 
+    case tourCharacter l n of
+        Just (c', n') -> let res = gameStepLemmings q n' in
+                    (c':fst res, snd res)
+        Nothing -> gameStepLemmings q n
+
+tourCharacter :: Character -> Niveau -> Maybe (Character, Niveau)
+tourCharacter c n = do -- Tour d'un Character
+    case getMap n !? persoCoordToMapCoord (getCoordonnee c) (getSize n) of
+        Just Sortie -> Nothing
+        _ -> case c of
+            Lemming _ -> Just (tourLemming c n (getSpeed c), n) -- Si Lemming
+            Flotteur _ -> Just (tourFlotteur c n (getSpeed c), n) -- Si Flotteur
+            Grimpeur _ -> Just (tourGrimpeur c n (getSpeed c), n) -- Si Grimpeur
+            Pelleteur _ -> Just $ tourPelleteur c n (getSpeed c) -- Si Pelleteur
+            Creuseur _ -> Just $ tourCreuseur c n (getSpeed c) -- Si Creuseur
 
 tourLemming :: Character -> Niveau -> Int -> Character
-tourLemming l n 0 = l
-tourLemming l@(Lemming st) n tour = tourLemming (Lemming $ tourStatus st n) n (tour - 1)
+tourLemming l _ 0 = l -- Lemming a fini son tour
+tourLemming l@(Lemming st) n tour = tourLemming (Lemming $ tourStatus st n) n (tour - 1) -- Lemming a au moins 1 tour
+tourLemming l _ _ = l -- Ce n'est pas un Lemming
+
+tourFlotteur :: Character -> Niveau -> Int -> Character
+tourFlotteur f _ 0 = f -- Flotteur a fini son tour
+tourFlotteur f@(Flotteur st) n tour = -- Flotteur a au moins 1 tour
+    case tourStatus st n of
+        Tombeur (State c d s) dist state2 -> tourFlotteur (Flotteur $ Tombeur (State c d 1) 0 state2) n (tour - 1) 
+        statut -> tourFlotteur (Flotteur statut) n (tour - 1)
+
+tourGrimpeur :: Character -> Niveau -> Int -> Character
+tourGrimpeur g _ 0 = g -- Grimpeur a fini sou tour
+tourGrimpeur g@(Grimpeur st) n@(Niveau _ _ size m _ _) tour = -- Grimpeur a au moins 1 tour
+    case st of -- Test si le statut du Grimpeur
+        Marcheur state@(State c d s) -> -- Si Marcheur
+            if auxGrimpeur state
+            then
+                if not $ estDure (modifyCoord (persoCoordToMapCoord (bougeCoord H c) size) d) m
+                then
+                    tourGrimpeur (Grimpeur $ Marcheur (State (bougeCoord H c) d s)) n (tour - 1)
+                else
+                    tourGrimpeur g n (tour - 1)
+            else
+                tourGrimpeur (Grimpeur $ tourStatus st n) n (tour - 1)
+        _ -> tourGrimpeur (Grimpeur $ tourStatus st n) n (tour - 1)  
+    where
+    auxGrimpeur :: State -> Bool
+    auxGrimpeur (State c d s) 
+        | d == D = estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m &&
+            estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c) size) D) m
+        | d == G = estDure (persoCoordToMapCoord (bougeCoord d c) size) m &&
+            estDure (persoCoordToMapCoord (bougeCoord GH c) size) m              
+
+tourPelleteur :: Character -> Niveau -> Int -> (Character, Niveau)
+tourPelleteur p n 0 = (p, n) -- Pelleteur a fini son tour
+tourPelleteur p@(Pelleteur st) n tour = -- Pelleteur a au moins 1 tour
+    case st of -- Test le statut du Pelleteur
+        Marcheur state -> -- Si Marcheur, doit essayer de creuser
+            let (p', n') = auxPelleteur state in 
+            tourPelleteur p' n' (tour - 1)
+        _ -> tourPelleteur (Pelleteur $ tourStatus st n) n (tour - 1) -- Sinon, ne fait rien
+    where
+    auxPelleteur :: State -> (Character, Niveau)
+    auxPelleteur state@(State c d s) = -- Tour Pelleteur
+        let check = modifyCoord (persoCoordToMapCoord (bougeCoord d c) (getSize n)) d in -- Récupére le contenu de la case qu'il regarde
+        case getMap n !? check of
+        (Just Terre) -> -- Si la case peut être creusée
+            (p, attaqueCase check 1 n)
+        _ -> -- Si la case ne peut pas être creusée
+            (Pelleteur $ tourStatus st n, n)
+tourPelleteur p n _ = (p, n) -- Ce n'est pas un Pelleteur
+
+tourCreuseur :: Character -> Niveau -> Int -> (Character, Niveau)
+tourCreuseur cr n 0 = (cr, n) -- Creuseur a fini son tour
+tourCreuseur cr@(Creuseur st) n tour = -- Creuseur a au moins 1 tour
+    case st of -- Test le statut du Creuseur
+        Marcheur state -> -- Si Marcheur, doit essayer de creuser
+            let (cr', n') = auxCreuseur state in
+            tourCreuseur cr' n' (tour - 1)
+        _ -> tourCreuseur (Creuseur $ tourStatus st n) n (tour - 1) -- Sinon, ne fait rien
+    where
+    auxCreuseur :: State -> (Character, Niveau)
+    auxCreuseur state@(State (C x y) d s) -- Tour Creuseur
+        | x `mod` getSize n == 0 || (x `mod` getSize n == 19 && d == D) =
+            let check = modifyCoord (bougeCoord B (persoCoordToMapCoord (C x y) (getSize n))) d in
+            case getMap n !? check of
+            Just Terre -> -- Si la case peut être creusée
+                (cr, attaqueCase check 1 n)
+            _ -> (Creuseur $ tourStatus st n, n)
+        | otherwise  = (Creuseur $ tourStatus st n, n)
+tourCreuseur cr n _ = (cr, n) -- Ce n'est pas un Creuseur
 
 tourStatus :: Status -> Niveau -> Status
-tourStatus st@(Marcheur _) n = tourMarcheur st n (getSpeedFromStatus st)
-tourStatus st@Tombeur {} n = tourTombeur st n (getSpeedFromStatus st)
+tourStatus st@(Marcheur _) n = tourMarcheur st n 
+tourStatus st@Tombeur {} n = tourTombeur st n
 tourStatus st@(Mort _) n = st 
 
-
-tourMarcheur :: Status -> Niveau -> Int -> Status
-tourMarcheur march@(Marcheur st@(State c d s)) (Niveau _ _ size m) n
-    | n == 0 = march -- Tour fini
+tourMarcheur :: Status -> Niveau -> Status
+tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
     | not $ fst $ hasGround c d m size = -- not (estDure (modifyCoord (bougeCoord B (persoCoordToMapCoord c size)) d) m) = -- Vide sous ses pieds
-        tourTombeur (Tombeur (State (snd $ hasGround c d m size) B 4) 0 march) m size (n - 1) 
+        Tombeur (State (snd $ hasGround c d m size) B 4) 0 st
     | not $ estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Vide là où il regarde
-        tourMarcheur (Marcheur st { coord = bougeCoord d c }) m size (n - 1)
+        Marcheur st { coord = bougeCoord d c }
     | estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Dure là où il regarde
         if d == G -- Regarde à gauche
         then
-            if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m -- Dure à gauche
+            if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m || -- Dure à gauche
+               estDure (persoCoordToMapCoord (bougeCoord H c) size) m -- Dure en haut
             then
-                tourMarcheur (Marcheur st { direction = D }) m size (n - 1) -- Se retourne à droite
+                Marcheur st { direction = D } -- Se retourne à droite
             else
-                tourMarcheur (Marcheur st { coord = bougeCoord G (jump c d) }) m size (n - 1) -- Avance en Haut à Gauche
+                Marcheur st { coord = bougeCoord G (jump c d) } -- Avance en Haut à Gauche
         else -- Regarde à droite
             if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c ) size) D) m -- Dure à droite
             then
-                tourMarcheur (Marcheur st { direction = G }) m size (n - 1) -- Se retourne à Gauche
+                Marcheur st { direction = G } -- Se retourne à Gauche
             else
-                tourMarcheur (Marcheur st { coord = bougeCoord D (jump c d) }) m size (n - 1) -- Avance en Haut à Droite
-    | otherwise = tourMarcheur march m size (n - 1)
+                Marcheur st { coord = bougeCoord D (jump c d) } -- Avance en Haut à Droite
+    | otherwise = tourMarcheur march n
+tourMarcheur st _ = st -- Ce n'est pas un Marcheur
 
-tourTombeur :: Status -> Niveau -> Int -> Status
-tourTombeur tomb@(Tombeur (State c d s) dist char) (Niveau _ _ size m) n 
-    | n == 0 = tomb
+tourTombeur :: Status -> Niveau -> Status
+tourTombeur tomb@(Tombeur (State c d s) dist st) n@(Niveau _ _ size m _ _)
     | fst $ hasGround c d m size =  -- estDure (modifyCoord (bougeCoord B (persoCoordToMapCoord c size)) (getDirection char)) m = --hasGround (persoCoordToMapCoord c size) m size = 
         if dist `div` size > 50 -- Vérifie si la distance est mortelle
         then 
             Mort (State c d s) -- Mort
         else 
-            tourMarcheur (Marcheur (State c (getDirection char) (getSpeed char))) m size (n - 1) -- Devient Marcheur
+            Marcheur (State c (getDirectionFromState st) (getSpeedFromState st)) -- Devient Marcheur
     | otherwise = -- Continue de tomber
-        tourTombeur (Tombeur (State (bougeCoord B c) d s) (dist + 1) char) m size (n - 1)
+        Tombeur (State (bougeCoord B c) d s) (dist + 1) st
+tourTombeur tomb _ = tomb -- Ce n'est pas un Tombeur
 
 jump :: Coord -> Deplacement  -> Coord 
 jump (C x y) D = C (x + 1) (y - 20)
@@ -99,10 +198,22 @@ modifyCoord (C x y) d
 
 hasGround :: Coord -> Deplacement -> Map Coord Case -> Int -> (Bool, Coord)
 hasGround c@(C x y) d m size 
-    | d == D && x `mod` size == 19 = -- 
+    | d == D && x `mod` size == 19 =
         (estDure (bougeCoord DB (persoCoordToMapCoord c size)) m, C (x + 1) y)
     | x `mod` size == 0 = 
         (estDure (bougeCoord B (persoCoordToMapCoord c size)) m, c)
     | otherwise = (estDure (bougeCoord B (persoCoordToMapCoord c size)) m || -- Sol sous ses pieds OU
         not (estDure (bougeCoord B (persoCoordToMapCoord c size)) m) && -- Vide sous ses pieds
         estDure (bougeCoord DB (persoCoordToMapCoord c size)) m, c) -- ET sol 
+
+isFinish :: Game -> (Bool, GameStatus)
+isFinish g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau _ _ nNbExit _)) lemm infoG@(InfoGame nbSpawn gNbExit gs) cl)
+    | gs == Win || gs == Loose = (True, gs) -- Si la partie est finie
+    | gs == Playing = -- Si la partie est en cours
+        if gNbExit <= nNbExit -- Si il le minimum est atteint
+        then
+            (True, Win) -- Renvoie True et le statut gagnat
+        else
+            (False, Playing) -- Renvoie False
+    | not $ stillAlive lemm = (False, Loose) -- Si tous les lemmings sont morts
+    | otherwise = (False, Playing) -- Sinon, la partie continue

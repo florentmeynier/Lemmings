@@ -17,8 +17,6 @@ newtype SpriteId = SpriteId String
 instance Show SpriteId where
   show (SpriteId id) = show id
 
-
-
 type SpriteMap = Map SpriteId Sprite
 
 createSpriteMap :: SpriteMap
