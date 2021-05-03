@@ -3,7 +3,7 @@ module Lemming where
 import Movement
 
 data Character = Lemming Status | Flotteur Status | Grimpeur Status | Pelleteur Status | Creuseur Status
-    deriving (Eq, Show)
+    deriving (Eq, Show) 
 
 data Status = Marcheur State | Tombeur State Int State | Mort State
     deriving (Eq, Show)

@@ -25,22 +25,25 @@ data Game = Game { niveau :: Niveau,
                  }
     deriving (Eq, Show)
 
+getNiveau :: Game -> Niveau
+getNiveau (Game n _ _ _) = n
+
 getLemmings :: Game -> [Character]
 getLemmings (Game _ l _ _) = l
 
-iNiv = initNiveau 24 10 20 5 5 5 30
+iNiv = initNiveau 24 10 20 5 5 5 5 30 ""
 
 iMap = do
-    let Niveau _ _ _ m _ _ = iNiv
+    let Niveau _ _ _ m _ _= iNiv
     m
 
 initInfoGame = InfoGame 0 0 Playing
 
 initGameManager :: Int -> Int -> Int -> Deplacement -> Int -> Game
-initGameManager h l size d s = Game (initNiveau h l size 5 5 5 30) [] initInfoGame 0
+initGameManager h l size d s = Game (initNiveau h l size 5 5 5 5 30 "") [] initInfoGame 0
 
 gameStepGameManager :: Game -> Int -> Game
-gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _)) lemm infoG@(InfoGame nbSpawn nbExit gs) cl) tick =
+gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _ _ _)) lemm infoG@(InfoGame nbSpawn nbExit gs) cl) tick =
     let (lemm', n') = gameStepLemmings lemm n in -- Fait 1 tour tous les Lemmings
     case spawnCharacter g tick of -- Vérifie si un nouveau Lemming doit apparaitre
         Just c -> Game n' (c:lemm') (InfoGame (nbSpawn + 1) nbExit gs) cl -- Ajout du lemming + augmente le nombre total
@@ -48,7 +51,7 @@ gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _)) lemm
 
 
 spawnCharacter :: Game -> Int -> Maybe Character
-spawnCharacter (Game n@(Niveau _ _ size _ _ (InfoNiveau delay max _ _)) lemm (InfoGame nbSpawn nbExit _) _) tick
+spawnCharacter (Game n@(Niveau _ _ size _ _ (InfoNiveau delay max _ _ _ _)) lemm (InfoGame nbSpawn nbExit _) _) tick
     | tick `mod` delay == 0 && nbSpawn < max = -- Ajout d'un nouveau Lemming
         Just $ Lemming (Marcheur (State (mapCoordToPersoCoord (getEntree n) size) D 1))
     | otherwise = Nothing -- N'ajoute pas de nouveau Lemming
@@ -63,7 +66,7 @@ gameStepLemmings (l:q) n =
 
 tourCharacter :: Character -> Niveau -> Maybe (Character, Niveau)
 tourCharacter c n = do -- Tour d'un Character
-    case getMap n !? persoCoordToMapCoord (getCoordonnee c) (getSize n) of
+    case getMap n !? persoCoordToMapCoord (modifyCoord (getCoordonnee c) (getDirection c)) (getSize n) of
         Just Sortie -> Nothing
         _ -> case c of
             Lemming _ -> Just (tourLemming c n (getSpeed c), n) -- Si Lemming
@@ -154,7 +157,7 @@ tourStatus st@(Mort _) n = st
 tourMarcheur :: Status -> Niveau -> Status
 tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
     | not $ fst $ hasGround c d m size = -- not (estDure (modifyCoord (bougeCoord B (persoCoordToMapCoord c size)) d) m) = -- Vide sous ses pieds
-        Tombeur (State (snd $ hasGround c d m size) B 4) 0 st
+        Tombeur (State (snd $ hasGround c d m size) B 3) 0 st
     | not $ estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Vide là où il regarde
         Marcheur st { coord = bougeCoord d c }
     | estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Dure là où il regarde
@@ -176,9 +179,9 @@ tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
 tourMarcheur st _ = st -- Ce n'est pas un Marcheur
 
 tourTombeur :: Status -> Niveau -> Status
-tourTombeur tomb@(Tombeur (State c d s) dist st) n@(Niveau _ _ size m _ _)
+tourTombeur tomb@(Tombeur (State c d s) dist st) n@(Niveau _ _ size m _ infoN)
     | fst $ hasGround c d m size =  -- estDure (modifyCoord (bougeCoord B (persoCoordToMapCoord c size)) (getDirection char)) m = --hasGround (persoCoordToMapCoord c size) m size = 
-        if dist `div` size > 50 -- Vérifie si la distance est mortelle
+        if dist `div` size > getDistanceMortelle n -- Vérifie si la distance est mortelle
         then 
             Mort (State c d s) -- Mort
         else 
@@ -207,12 +210,12 @@ hasGround c@(C x y) d m size
         estDure (bougeCoord DB (persoCoordToMapCoord c size)) m, c) -- ET sol 
 
 isFinish :: Game -> (Bool, GameStatus)
-isFinish g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau _ _ nNbExit _)) lemm infoG@(InfoGame nbSpawn gNbExit gs) cl)
+isFinish g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau _ _ nNbExit _ _ _)) lemm infoG@(InfoGame nbSpawn gNbExit gs) cl)
     | gs == Win || gs == Loose = (True, gs) -- Si la partie est finie
     | gs == Playing = -- Si la partie est en cours
-        if gNbExit <= nNbExit -- Si il le minimum est atteint
+        if gNbExit >= nNbExit -- Si il le minimum est atteint
         then
-            (True, Win) -- Renvoie True et le statut gagnat
+            (True, Win) -- Renvoie True et le statut gagnant
         else
             (False, Playing) -- Renvoie False
     | not $ stillAlive lemm = (False, Loose) -- Si tous les lemmings sont morts

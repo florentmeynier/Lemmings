@@ -2,7 +2,7 @@
 
 module Main where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Control.Concurrent (threadDelay)
 
 import Data.Set (Set)
@@ -37,7 +37,7 @@ import qualified Model as M
 
 import qualified System.Random as R
 
-import Mouse 
+import Mouse
 import qualified Mouse as MS
 
 import File
@@ -53,20 +53,11 @@ import Map
 import GameManager (Game)
 import qualified GameManager as GM
 
-main :: IO ()
-main = do
-  initializeAll
-  -- initialisation de la partie
-  let l = 10 -- 32 :: Int
-  let h = 24 :: Int
-  let size = 20 :: Int
-  --let game = GM.initGameManager h l size Move.D 1
-  niveau <- loadNiveau "data/test"
-  let game = GM.Game niveau [] GM.initInfoGame 0
-  window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
-  renderer <- createRenderer window (-1) defaultRenderer
+loadAllSprites :: Renderer -> Int -> Int -> Int -> IO (TextureMap, SpriteMap)
+loadAllSprites renderer h l size = do
+  let tmap = TM.createTextureMap
+  let smap = SM.createSpriteMap
   -- chargement de l'image du fond
-  --(tmap, smap) <- loadBackground renderer "assets/background.bmp" TM.createTextureMap SM.createSpriteMap
   (tmap, smap) <- SM.loadSprite renderer "assets/background.bmp" "background" TM.createTextureMap SM.createSpriteMap 480 640
   -- chargement du metal
   (tmap, smap) <- SM.loadSprite renderer "assets/metal.bmp" "metal" tmap smap size size
@@ -77,7 +68,7 @@ main = do
   -- chargement de la sortie
   (tmap, smap) <- SM.loadSprite renderer "assets/sDoor.bmp" "sDoor" tmap smap size size
   -- chargement du fond blanc
-  (tmap, smap) <- SM.loadSprite renderer "assets/white.bmp" "white" tmap smap (2 * h) (l * size)
+  (tmap, smap) <- SM.loadSprite renderer "assets/white.bmp" "white" tmap smap (2 * size) (l * size)
   -- chargement class Lemming
   (tmap, smap) <- SM.loadSprite renderer "assets/redcross.bmp" "redcross" tmap smap size size
   -- chargement du parapluie
@@ -92,6 +83,20 @@ main = do
   (tmap, smap) <- SM.loadSprite renderer "assets/pelle.bmp" "pelle" tmap smap size size
   -- chargement du personnage
   (tmap, smap) <- SM.loadSprite renderer "assets/perso.bmp" "perso" tmap smap size size
+  pure (tmap, smap)
+
+main :: IO ()
+main = do
+  initializeAll
+  selectGameModeLoop
+  -- initialisation de la partie
+  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo1"
+  let size = getSize niveau
+  let game = GM.Game niveau [] GM.initInfoGame 0
+  window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
+  renderer <- createRenderer window (-1) defaultRenderer
+  -- chargement de toutes les textures
+  (tmap, smap) <- loadAllSprites renderer h l size
   -- initialisation de l'état du clavier
   let kbd = K.createKeyboard
   -- lancement de la gameLoop
@@ -104,13 +109,7 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
   let kbd' = K.handleEvents events kbd
   let game1 = MS.handleEvent events game
   clear renderer
-  --- display background
-  S.displaySprite renderer tmap (SM.fetchSprite (SpriteId "background") smap)
-   
-  displayPerso renderer tmap smap game1
-  displayMap renderer tmap smap game1
-  displayClasse renderer tmap smap game1
-
+  display renderer tmap smap game1
   present renderer
   endTime <- time
   let refreshTime = endTime - startTime
@@ -118,34 +117,65 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
   threadDelay $ delayTime * 1000 -- microseconds
   endTime <- time
   let deltaTime = endTime - startTime
-  -- putStrLn $ "Delta time: " <> (show (deltaTime * 1000)) <> " (ms)"
-  -- putStrLn $ "Frame rate: " <> (show (1 / deltaTime)) <> " (frame/s)"
-
   let game' = GM.gameStepGameManager game1 tick
-  unless (K.keypressed KeycodeEscape kbd' && not (fst (GM.isFinish game1))) (gameLoop frameRate renderer tmap smap kbd' game' (tick + 1))
+  case GM.isFinish game' of
+    (True, gs) -> 
+      return ()
+    (False, _) ->
+      if K.keypressed KeycodeR kbd'
+      then 
+          startNewGame frameRate renderer tmap smap kbd' (GM.getNiveau game')
+      else
+        if K.keypressed KeycodeEscape kbd'
+        then
+          return ()
+        else
+          gameLoop frameRate renderer tmap smap kbd' game' (tick + 1)
+  --unless (K.keypressed KeycodeEscape kbd') (gameLoop frameRate renderer tmap smap kbd' game' (tick + 1))
+  --unless (K.keypressed KeycodeEscape kbd') (gameLoop frameRate renderer tmap smap kbd' game' (tick + 1))
+
+
+startNewGame frameRate renderer tmap smap kbd' n = do
+  n' <- loadNiveau $ "maps/" ++ getNiveauName n
+  let gm = GM.Game n' [] GM.initInfoGame 0
+  gameLoop frameRate renderer tmap smap kbd' gm 0
+
+selectGameModeLoop :: IO ()
+selectGameModeLoop = do
+  putStrLn "Choisi ton mode de jeu :"
+
+display :: Renderer -> TextureMap -> SpriteMap -> Game -> IO ()
+display renderer tmap smap game = do
+  S.displaySprite renderer tmap (SM.fetchSprite (SpriteId "background") smap) -- affiche le fond
+  displayPerso renderer tmap smap game -- affiche les Lemmings
+  displayMap renderer tmap smap game -- affiche les murs
+  displayClasse renderer tmap smap game -- affiche le menu de sélection de classe
 
 displayPerso :: Renderer -> TextureMap -> SpriteMap -> Game -> IO ()
 displayPerso renderer tmap smap (GM.Game _ lemmings _ _) = aux lemmings where
   aux :: [L.Character] -> IO ()
   aux [] = return ()
   aux (c:q) = do
-    S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "perso") smap)
+    case L.getStatus c of -- Vérifie le statut du Lemming
+      L.Mort _ -> return () -- Si il est mort, n'affiche rien
+      _ -> do
+        S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "perso") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-    case c of
-      L.Flotteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "umbrella") smap)
+        case c of
+          L.Flotteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "umbrella") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-      L.Grimpeur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "piolet") smap)
+          L.Grimpeur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "piolet") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-      L.Pelleteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelleteuse") smap)
+          L.Pelleteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelleteuse") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-      L.Creuseur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelle") smap)
+          L.Creuseur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelle") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-      _ -> return ()
+          _ -> return ()
     aux q
 
 displayMap :: Renderer -> TextureMap -> SpriteMap -> Game -> IO ()
@@ -185,7 +215,7 @@ displayClasse renderer tmap smap gm@(GM.Game n@(Niveau h l size m _ _) lemm _ cl
                                   (fromIntegral $ (3 * (size * 2)) + (size `div` 2)) (fromIntegral $ h * size + (size `div` 2)))
   S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelle") smap)
                                   (fromIntegral $ (4 * (size * 2)) + (size `div` 2)) (fromIntegral $ h * size + (size `div` 2)))
-  
+
   if cl == -1
   then
     return ()
