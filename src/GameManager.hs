@@ -9,11 +9,6 @@ import Map
 import Lemming
 
 import Movement
-    ( bougeCoord,
-      mapCoordToPersoCoord,
-      persoCoordToMapCoord,
-      Coord(..),
-      Deplacement(DB, GH, H, DH, G, D, B) )
 
 data GameStatus = Pending | Playing | Win | Loose
     deriving (Eq, Show)
@@ -77,7 +72,7 @@ tourCharacter c n = do -- Tour d'un Character
         _ -> case c of
             Lemming _ -> Just (tourLemming c n (getSpeed c), n) -- Si Lemming
             Flotteur _ -> Just (tourFlotteur c n (getSpeed c), n) -- Si Flotteur
-            Grimpeur _ -> Just (tourGrimpeur c n (getSpeed c), n) -- Si Grimpeur
+            Grimpeur _ _ -> Just (tourGrimpeur c n (getSpeed c), n) -- Si Grimpeur
             Pelleteur _ -> Just $ tourPelleteur c n (getSpeed c) -- Si Pelleteur
             Creuseur _ -> Just $ tourCreuseur c n (getSpeed c) -- Si Creuseur
 
@@ -95,33 +90,44 @@ tourFlotteur f@(Flotteur st) n tour = -- Flotteur a au moins 1 tour
 
 tourGrimpeur :: Character -> Niveau -> Int -> Character
 tourGrimpeur g _ 0 = g -- Grimpeur a fini sou tour
-tourGrimpeur g@(Grimpeur st) n@(Niveau _ _ size m _ _) tour = -- Grimpeur a au moins 1 tour
+tourGrimpeur g@(Grimpeur st b) n@(Niveau _ _ size m _ _) tour = -- Grimpeur a au moins 1 tour
     case st of -- Test le statut du Grimpeur
         Marcheur state@(State c d s) -> -- Si Marcheur
-            case auxGrimpeur state of
-                Just c' -> tourGrimpeur (Grimpeur $ Marcheur (State c' d s)) n (tour - 1)
-                Nothing -> tourGrimpeur (Grimpeur $ tourStatus st n) n (tour - 1)
-        _ -> tourGrimpeur (Grimpeur $ tourStatus st n) n (tour - 1)
+            case auxGrimpeur state b of
+                Just (b', c') -> tourGrimpeur (Grimpeur (Marcheur (State c' d s)) b') n (tour - 1)
+                Nothing -> tourGrimpeur (Grimpeur (tourStatus st n) False) n (tour - 1)
+        _ -> tourGrimpeur (Grimpeur (tourStatus st n) b) n (tour - 1)
     where
-    auxGrimpeur :: State -> Maybe Coord
-    auxGrimpeur (State c@(C x y) d s) =
-        if not (estDure (modifyCoord (persoCoordToMapCoord (bougeCoord H c) size) d) m) && estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m 
-        then -- Si vide au dessus et là où regarde
-            if d == D
-            then -- Si regarde à droite
-                if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c) size) D) m
-                then -- Si dur en haut à droite
-                    Just $ C x (y - 1) -- Monte
-                else
-                    Just $ jump (bougeCoord d c) d -- Saute au dessus
-            else -- Si regarde à gauche
-                if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m
-                then -- Si dur en haut à gauche
-                    Just $ C x (y - 1) -- Monte
-                else
-                    Just $ jump (bougeCoord d c) d -- Saute au dessus
-        else
-            Nothing
+    auxGrimpeur :: State -> Bool -> Maybe (Bool, Coord)
+    auxGrimpeur st@(State c@(C x y) d s) b
+        | not b =
+            if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord H c) size) d) m
+            then
+                Nothing
+            else
+                auxGrimpeur st True
+        | not (estDure (modifyCoord (persoCoordToMapCoord (bougeCoord H c) size) d) m) = -- Si vide au dessus
+            if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m
+            then -- Si vide là où il regarde
+                if d == D
+                then -- Si regarde à droite
+                    if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c) size) D) m
+                    then -- Si dur en haut à droite
+                        Just (b, C x (y - 1)) -- Monte
+                    else
+                        Just (not b, jump (bougeCoord d c) d) -- Saute au dessus
+                else -- Si regarde à gauche
+                    if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m
+                    then -- Si dur en haut à gauche
+                        Just (b, C x (y - 1)) -- Monte
+                    else
+                        Just (not b, jump (bougeCoord d c) d) -- Saute au dessus
+            else
+                Nothing
+        | not $ estDure (modifyCoord (persoCoordToMapCoord (bougeCoord B c) size) d) m -- Si il y a du vide sous ses pieds 
+          && estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- et qu'il y a un mur face à lui          
+                Just (b, c)
+        | otherwise = Nothing
 
 tourPelleteur :: Character -> Niveau -> Int -> (Character, Niveau)
 tourPelleteur p n 0 = (p, n) -- Pelleteur a fini son tour
@@ -167,23 +173,37 @@ tourStatus st@(Marcheur _) n = tourMarcheur st n
 tourStatus st@Tombeur {} n = tourTombeur st n
 tourStatus st@(Mort _) n = st
 
+-- >>> tourLemming (Lemming (Marcheur (State (C 59 40) D 1))) iNiv 2
+-- Lemming (Marcheur (State {coord = C 60 40, direction = G, speed = 1}))
+
+-- >>> estDure (modifyCoord (persoCoordToMapCoord (bougeCoord D (C 59 40)) 20) D) (getMap iNiv)
+-- True
+
+
 tourMarcheur :: Status -> Niveau -> Status
 tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
     | not $ fst $ hasGround c d m size = -- Vide sous ses pieds
         Tombeur (State (snd $ hasGround c d m size) B 3) 0 st
+    | d == D && getX c `mod` size == size - 1 =
+        if estDure (persoCoordToMapCoord (bougeCoord d c) size) m
+        then
+            Marcheur st { direction = G }
+        else
+            Marcheur st { coord = bougeCoord D c }
     | not $ estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Vide là où il regarde
         Marcheur st { coord = bougeCoord d c }
     | estDure (modifyCoord (persoCoordToMapCoord (bougeCoord d c) size) d) m = -- Dure là où il regarde
         if d == G -- Regarde à gauche
         then
-            if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m || -- Dure à gauche
+            if estDure (persoCoordToMapCoord (bougeCoord GH c) size) m || -- Dure en haut à gauche
                estDure (persoCoordToMapCoord (bougeCoord H c) size) m -- Dure en haut
             then
                 Marcheur st { direction = D } -- Se retourne à droite
             else
                 Marcheur st { coord = bougeCoord G (jump c d) } -- Avance en Haut à Gauche
         else -- Regarde à droite
-            if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c ) size) D) m -- Dure à droite
+            if estDure (modifyCoord (persoCoordToMapCoord (bougeCoord DH c) size) D) m || -- Dure en haut à droite
+               estDure (persoCoordToMapCoord (bougeCoord H c) size) m -- Dure en haut
             then
                 Marcheur st { direction = G } -- Se retourne à Gauche
             else
