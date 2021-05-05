@@ -81,7 +81,7 @@ generateMap h l = fromList (aux 0 0 []) where
         | otherwise = aux (x + 1) y ((C x y, Vide):list)
 
 addEntreeSortie :: Map Coord Case -> Map Coord Case
-addEntreeSortie m = insert (C 5 22) Metal (insert (C 5 21) Metal (insert (C 5 20) Metal m))
+addEntreeSortie m = insert (C 3 3) Metal (insert (C 2 3) Metal (insert (C 4 2) Metal (insert (C 3 1) Metal m)))
 
 addGround :: Map Coord Case -> Map Coord Case
 addGround m = fromList (aux (toList m) 0 ) where

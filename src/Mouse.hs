@@ -34,7 +34,7 @@ cliqueMap (c:q) cl pX pY
         case cl of
             0 -> Lemming (getStatus c):q
             1 -> Flotteur (getStatus c):q
-            2 -> Grimpeur (getStatus c):q
+            2 -> Grimpeur (getStatus c) False:q
             3 -> Pelleteur (getStatus c):q
             4 -> Creuseur (getStatus c):q
     | otherwise = c:cliqueMap q cl pX pY

@@ -2,7 +2,7 @@ module Lemming where
 
 import Movement
 
-data Character = Lemming Status | Flotteur Status | Grimpeur Status | Pelleteur Status | Creuseur Status
+data Character = Lemming Status | Flotteur Status | Grimpeur Status Bool | Pelleteur Status | Creuseur Status
     deriving (Eq, Show) 
 
 data Status = Marcheur State | Tombeur State Int State | Mort State
@@ -30,7 +30,7 @@ stillAlive (h:q) =
 getStatus :: Character -> Status
 getStatus (Lemming st) = st
 getStatus (Flotteur st) = st
-getStatus (Grimpeur st) = st
+getStatus (Grimpeur st _) = st
 getStatus (Pelleteur st) = st
 getStatus (Creuseur st) = st
 

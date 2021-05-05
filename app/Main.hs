@@ -90,7 +90,7 @@ main = do
   initializeAll
   selectGameModeLoop
   -- initialisation de la partie
-  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo4"
+  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo10"
   let size = getSize niveau
   let game = GM.Game niveau [] GM.initInfoGame 0
   window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
@@ -175,7 +175,7 @@ displayPerso renderer tmap smap (GM.Game _ lemmings _ _) = aux lemmings where
           L.Flotteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "umbrella") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
-          L.Grimpeur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "piolet") smap)
+          L.Grimpeur _ _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "piolet") smap)
                                  (fromIntegral $ L.getCoordX c)
                                  (fromIntegral $ L.getCoordY c))
           L.Pelleteur _ -> S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelleteuse") smap)
