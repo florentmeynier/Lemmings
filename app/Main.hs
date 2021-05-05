@@ -8,7 +8,7 @@ import Control.Concurrent (threadDelay)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import Data.List (foldl')
+import Data.List (foldl', isPrefixOf)
 
 import Data.Map as DMap
 
@@ -90,7 +90,7 @@ main = do
   initializeAll
   selectGameModeLoop
   -- initialisation de la partie
-  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo1"
+  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo4"
   let size = getSize niveau
   let game = GM.Game niveau [] GM.initInfoGame 0
   window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
@@ -119,8 +119,12 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
   let deltaTime = endTime - startTime
   let game' = GM.gameStepGameManager game1 tick
   case GM.isFinish game' of
-    (True, gs) -> 
-      return ()
+    (True, GM.Win) -> -- Si la partie est gagnée
+      if isPrefixOf "solo" (Map.getNiveauName $ GM.getNiveau game')
+      then -- Si c'est un niveau du solo
+        nextLevel frameRate renderer tmap smap kbd' (GM.getNiveau game')
+      else -- Si c'est un niveau importé
+        return ()
     (False, _) ->
       if K.keypressed KeycodeR kbd'
       then 
@@ -131,9 +135,14 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
           return ()
         else
           gameLoop frameRate renderer tmap smap kbd' game' (tick + 1)
-  --unless (K.keypressed KeycodeEscape kbd') (gameLoop frameRate renderer tmap smap kbd' game' (tick + 1))
-  --unless (K.keypressed KeycodeEscape kbd') (gameLoop frameRate renderer tmap smap kbd' game' (tick + 1))
+    _ -> return ()
 
+nextLevel frameRate renderer tmap smap kbd' n = do
+  let (h1, h2) = Prelude.splitAt 4 (getNiveauName n)
+  let lvl = read h2 :: Int
+  n' <- loadNiveau $ "maps/solo" ++ show (lvl + 1)
+  let gm = GM.Game n' [] GM.initInfoGame 0
+  gameLoop frameRate renderer tmap smap kbd' gm 0
 
 startNewGame frameRate renderer tmap smap kbd' n = do
   n' <- loadNiveau $ "maps/" ++ getNiveauName n

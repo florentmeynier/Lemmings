@@ -9,7 +9,7 @@ data Status = Marcheur State | Tombeur State Int State | Mort State
     deriving (Eq, Show)
 
 data State = State { coord :: Coord ,
-                     direction :: Deplacement  ,
+                     direction :: Deplacement ,
                      speed :: Int 
                     }
                     deriving(Eq, Show)

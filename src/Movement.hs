@@ -28,14 +28,14 @@ mapCoordToPersoCoord (C x y) size = C (x * size) (y * size)
 
 bougeCoord :: Deplacement -> Coord -> Coord
 bougeCoord N c = c 
-bougeCoord G (C x y) = C (x-1) y
-bougeCoord D (C x y) = C (x+1) y
-bougeCoord H (C x y) = C x (y-1)
-bougeCoord B (C x y) = C x (y+1)
-bougeCoord GH (C x y) = C (x-1) (y-1)
-bougeCoord GB (C x y) = C (x-1) (y+1)
-bougeCoord DH (C x y) = C (x+1) (y-1)
-bougeCoord DB (C x y) = C (x+1) (y+1)
+bougeCoord G (C x y) = C (x - 1) y
+bougeCoord D (C x y) = C (x + 1) y
+bougeCoord H (C x y) = C x (y - 1)
+bougeCoord B (C x y) = C x (y + 1)
+bougeCoord GH (C x y) = C (x - 1) (y - 1)
+bougeCoord GB (C x y) = C (x - 1) (y + 1)
+bougeCoord DH (C x y) = C (x + 1) (y - 1)
+bougeCoord DB (C x y) = C (x + 1) (y + 1)
 
 instance Ord Coord where
     (<) (C x1 y1) (C x2 y2) = if y1 == y2 then x1 < x2 else y1 < y2 

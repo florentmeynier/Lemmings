@@ -65,7 +65,6 @@ getEntree (Niveau _ _ _ m _ _) = aux $ toList m where
             (c, Entree) -> c
             _ -> aux q
 
-
 initInfoNiveau :: Int -> Int -> Int -> Int -> Int -> [Char] -> InfoNiveau
 initInfoNiveau = InfoNiveau
 
@@ -82,9 +81,7 @@ generateMap h l = fromList (aux 0 0 []) where
         | otherwise = aux (x + 1) y ((C x y, Vide):list)
 
 addEntreeSortie :: Map Coord Case -> Map Coord Case
-addEntreeSortie m = insert (C 4 15) Terre (insert (C 2 15) Terre (insert (C 5 14) Terre (insert (C 1 21) Terre (insert (C 2 22) Terre (insert (C 4 22) Terre
-    (insert (C 5 21) Terre (insert (C 6 20) Terre (insert (C 6 21) Terre
-    (insert (C 3 15) Terre (insert (C 1 1) Entree (insert (C 3 22) Sortie m)))))))))))
+addEntreeSortie m = insert (C 5 22) Metal (insert (C 5 21) Metal (insert (C 5 20) Metal m))
 
 addGround :: Map Coord Case -> Map Coord Case
 addGround m = fromList (aux (toList m) 0 ) where
@@ -115,15 +112,15 @@ invNiveau n@(Niveau h l size m _ _) = aux1 (toList m) 0 0 && aux2 0 0 where
             _ -> aux2 (x + 1) y
 
 attaqueCase :: Coord -> Int -> Niveau -> Niveau
-attaqueCase c i n@(Niveau h l size m cass iL) = 
+attaqueCase c i n@(Niveau h l size m cass iL@(InfoNiveau _ _ _ _ dur _)) = 
     case cass !? c of
     Just x -> 
         if x <= i
         then
-            Niveau h l size (delete c m) (delete c cass) iL
+            Niveau h l size (insert c Vide m) (delete c cass) iL
         else
          n { cassable = insert c (x - i) cass }   
-    _ -> n { cassable = insert c 20 cass }
+    _ -> n { cassable = insert c dur cass }
 
 estDure :: Coord -> Map Coord Case -> Bool
 estDure c m = 
