@@ -1,9 +1,8 @@
-## TME 6 BOUCHENAKI HABIB 3522424
-# temps de réalistation : 2-3 h
+## Projet Lemming BOUCHENAKI Habib 2522424 et MEYNIER Florent 3700051
 
-# minijeu
+# Projet
 
-Mini-jeu en Haskell-SDL2 à compléter.
+Jeu lemming en Haskell-SDL2, code + quelques niveaux, possibilité d'en ajouter de nouveaux 
 
 ## Compilation
 

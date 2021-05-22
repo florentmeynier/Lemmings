@@ -90,7 +90,7 @@ main = do
   initializeAll
   selectGameModeLoop
   -- initialisation de la partie
-  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo10"
+  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo1"
   let size = getSize niveau
   let game = GM.Game niveau [] GM.initInfoGame 0
   window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }

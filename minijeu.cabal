@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4a32eee17f70d2e2393262daaf15653136fde502d8b4a49b02bac68e6b10fbec
+-- hash: 810c83f2f9cff79237b8dc12b24ba221a506330b96f357bf0b114938c87331f2
 
 name:           minijeu
 version:        0.1.0.0
@@ -48,6 +48,7 @@ library
     , linear
     , random
     , sdl2
+    , hspec
   default-language: Haskell2010
 
 executable minijeu-exe
@@ -64,12 +65,14 @@ executable minijeu-exe
     , minijeu
     , random
     , sdl2
+    , hspec
   default-language: Haskell2010
 
 test-suite minijeu-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      MovementSpec
       Paths_minijeu
   hs-source-dirs:
       test
@@ -81,4 +84,5 @@ test-suite minijeu-test
     , minijeu
     , random
     , sdl2
+    , hspec
   default-language: Haskell2010
