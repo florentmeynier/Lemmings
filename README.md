@@ -1,4 +1,4 @@
-## Projet Lemming BOUCHENAKI Habib 2522424 et MEYNIER Florent 3700051
+## Projet Lemming BOUCHENAKI Habib 3522424 et MEYNIER Florent 3700051
 
 # Projet
 
