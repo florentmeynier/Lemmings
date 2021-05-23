@@ -110,7 +110,6 @@ prop_attaqueCase_pre c n@(Niveau _ _ _ m _ _) =
         Just Terre -> True
         _ -> False
 
-
 attaqueCase :: Coord -> Int -> Niveau -> Niveau
 attaqueCase c i n@(Niveau h l size m cass iL@(InfoNiveau _ _ _ _ dur _)) = 
     case cass !? c of
@@ -120,7 +119,7 @@ attaqueCase c i n@(Niveau h l size m cass iL@(InfoNiveau _ _ _ _ dur _)) =
             Niveau h l size (insert c Vide m) (delete c cass) iL
         else
          n { cassable = insert c (x - i) cass }   
-    _ -> n { cassable = insert c dur cass }
+    _ -> n { cassable = insert c (dur - 1) cass }
 
 estDure :: Coord -> Map Coord Case -> Bool
 estDure c m = 
@@ -128,6 +127,7 @@ estDure c m =
         Just Metal -> True
         Just Terre -> True 
         _ -> False
+
 
 instance Show Case where
     show c = 

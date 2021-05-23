@@ -76,12 +76,20 @@ tourLemming l _ 0 = l -- Lemming a fini son tour
 tourLemming l@(Lemming st) n tour = tourLemming (Lemming $ tourStatus st n) n (tour - 1) -- Lemming a au moins 1 tour
 tourLemming l _ _ = l -- Ce n'est pas un Lemming
 
+prop_tourFlotteur_pre :: Character -> Bool
+prop_tourFlotteur_pre Flotteur {} = True 
+prop_tourFlotteur_pre _ = False
+
 tourFlotteur :: Character -> Niveau -> Int -> Character
 tourFlotteur f _ 0 = f -- Flotteur a fini son tour
 tourFlotteur f@(Flotteur st) n tour = -- Flotteur a au moins 1 tour
     case tourStatus st n of
         Tombeur (State c d s) dist state2 -> tourFlotteur (Flotteur $ Tombeur (State c d 1) 0 state2) n (tour - 1)
         statut -> tourFlotteur (Flotteur statut) n (tour - 1)
+
+prop_tourGrimpeur_pre :: Character -> Bool 
+prop_tourGrimpeur_pre Grimpeur {} = True 
+prop_tourGrimpeur_pre _ = False
 
 tourGrimpeur :: Character -> Niveau -> Int -> Character
 tourGrimpeur g _ 0 = g -- Grimpeur a fini sou tour
@@ -124,6 +132,10 @@ tourGrimpeur g@(Grimpeur st b) n@(Niveau _ _ size m _ _) tour = -- Grimpeur a au
                 Just (b, c)
         | otherwise = Nothing
 
+prop_tourPelleteur_pre :: Character -> Bool
+prop_tourPelleteur_pre Pelleteur {} = True
+prop_tourPelleteur_pre _ = False
+
 tourPelleteur :: Character -> Niveau -> Int -> (Character, Niveau)
 tourPelleteur p n 0 = (p, n) -- Pelleteur a fini son tour
 tourPelleteur p@(Pelleteur st) n tour = -- Pelleteur a au moins 1 tour
@@ -142,6 +154,10 @@ tourPelleteur p@(Pelleteur st) n tour = -- Pelleteur a au moins 1 tour
         _ -> -- Si la case ne peut pas être creusée
             (Pelleteur $ tourStatus st n, n)
 tourPelleteur p n _ = (p, n) -- Ce n'est pas un Pelleteur
+
+prop_tourCreuseur_pre :: Character -> Bool
+prop_tourCreuseur_pre Creuseur {} = True
+prop_tourCreuseur_pre _ = False
 
 tourCreuseur :: Character -> Niveau -> Int -> (Character, Niveau)
 tourCreuseur cr n 0 = (cr, n) -- Creuseur a fini son tour
@@ -168,12 +184,9 @@ tourStatus st@(Marcheur _) n = tourMarcheur st n
 tourStatus st@Tombeur {} n = tourTombeur st n
 tourStatus st@(Mort _) n = st
 
--- >>> tourLemming (Lemming (Marcheur (State (C 59 40) D 1))) iNiv 2
--- Lemming (Marcheur (State {coord = C 60 40, direction = G, speed = 1}))
-
--- >>> estDure (modifyCoord (persoCoordToMapCoord (bougeCoord D (C 59 40)) 20) D) (getMap iNiv)
--- True
-
+prop_tourMarcheur_pre :: Status -> Bool
+prop_tourMarcheur_pre Marcheur {} = True
+prop_tourMarcheur_pre _ = False
 
 tourMarcheur :: Status -> Niveau -> Status
 tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
@@ -206,9 +219,13 @@ tourMarcheur march@(Marcheur st@(State c d s)) n@(Niveau _ _ size m _ _)
     | otherwise = march
 tourMarcheur st _ = st -- Ce n'est pas un Marcheur
 
+prop_tourTombeur_pre :: Status -> Bool
+prop_tourTombeur_pre Tombeur {} = True
+prop_tourTombeur_pre _ = False
+
 tourTombeur :: Status -> Niveau -> Status
 tourTombeur tomb@(Tombeur (State c d s) dist st) n@(Niveau _ _ size m _ infoN)
-    | fst $ hasGround c d m size = --hasGround (persoCoordToMapCoord c size) m size = 
+    | fst $ hasGround c d m size =
         if dist `div` size > getDistanceMortelle n -- Vérifie si la distance est mortelle
         then
             Mort (State c d s) -- Mort
@@ -235,6 +252,7 @@ hasGround c@(C x y) d m size
         (estDure (bougeCoord DB (persoCoordToMapCoord c size)) m, C (x + 1) y)
     | otherwise = (estDure (bougeCoord B (persoCoordToMapCoord c size)) m || -- Sol sous ses pieds OU
         estDure (bougeCoord DB (persoCoordToMapCoord c size)) m, c) -- ET sol 
+
 
 isFinish :: Game -> (Bool, GameStatus)
 isFinish g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau _ nbSpawn nNbExit _ _ _)) lemm infoG@(InfoGame gNbSpawn gNbExit gs) _)
