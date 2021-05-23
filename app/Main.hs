@@ -88,19 +88,17 @@ loadAllSprites renderer h l size = do
 main :: IO ()
 main = do
   initializeAll
-  selectGameModeLoop
   -- initialisation de la partie
-  niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo1"
-  let size = getSize niveau
-  let game = GM.Game niveau [] GM.initInfoGame 0
-  window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
-  renderer <- createRenderer window (-1) defaultRenderer
+  --niveau@(Niveau h l size _ _ _) <- loadNiveau "maps/solo1"
+  --let size = getSize niveau
+  --let game = GM.Game niveau [] GM.initInfoGame 0
   -- chargement de toutes les textures
-  (tmap, smap) <- loadAllSprites renderer h l size
+  -- (tmap, smap) <- loadAllSprites renderer h l size
   -- initialisation de l'état du clavier
-  let kbd = K.createKeyboard
+  --let kbd = K.createKeyboard
   -- lancement de la gameLoop
-  gameLoop 60 renderer tmap smap kbd game 1
+  selectMode
+  --gameLoop 60 renderer tmap smap kbd game 1
 
 gameLoop :: (RealFrac a, Show a) => a -> Renderer -> TextureMap -> SpriteMap -> Keyboard -> Game -> Int -> IO ()
 gameLoop frameRate renderer tmap smap kbd game tick = do
@@ -120,14 +118,19 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
   let game' = GM.gameStepGameManager game1 tick
   case GM.isFinish game' of
     (True, GM.Win) -> -- Si la partie est gagnée
-      if isPrefixOf "solo" (Map.getNiveauName $ GM.getNiveau game')
-      then -- Si c'est un niveau du solo
+      if "solo" `isPrefixOf` Map.getNiveauName (GM.getNiveau game')
+      then do -- Si c'est un niveau du solo
+        putStrLn "Niveau terminé"
         nextLevel frameRate renderer tmap smap kbd' (GM.getNiveau game')
-      else -- Si c'est un niveau importé
+      else do -- Si c'est un niveau importé
+        putStrLn "Niveau terminé !"
         return ()
+    (True, GM.Loose) -> do
+      putStrLn "Perdu !"
+      return ()
     (False, _) ->
       if K.keypressed KeycodeR kbd'
-      then 
+      then
           startNewGame frameRate renderer tmap smap kbd' (GM.getNiveau game')
       else
         if K.keypressed KeycodeEscape kbd'
@@ -137,9 +140,52 @@ gameLoop frameRate renderer tmap smap kbd game tick = do
           gameLoop frameRate renderer tmap smap kbd' game' (tick + 1)
     _ -> return ()
 
+selectMode :: IO ()
+selectMode = do
+  putStrLn "Bienvenue sur le jeu Lemmings !"
+  putStrLn "Vous pouvez choisir entre faire les missions de la campagne, si vous réussissez un niveau, le suivant se lance automatiquement.\nVous pouvez aussi charger votre propre niveau."
+  putStrLn "1 - Campagne"
+  putStrLn "2 - Charger un niveau"
+  putStrLn "0 - Quitter"
+  inp <- getLine
+  case read inp :: Int of
+    1 -> campainMode
+    2 -> loadMode
+    _ -> return ()
+
+campainMode :: IO ()
+campainMode = do
+  putStrLn "Choisissez le niveau par lequel débuter votre campagne."
+  putStrLn "Choix entre 1 et 10. 0 pour quitter"
+  inp <- getLine
+  let val = read inp :: Int
+  if val > 0 && val <= 10
+  then
+    firstGame ("solo" ++ show val)
+  else
+    unless (val == 0) campainMode
+
+loadMode :: IO ()
+loadMode = do
+  putStrLn "Choisissez le niveau que vous souhaitez charger. Il doit se trouver dans le répertoire maps."
+  inp <- getLine
+  putStrLn ("Chargement du niveau " ++ inp)
+  firstGame inp
+
+firstGame :: String -> IO ()
+firstGame name = do
+  n@(Niveau h l size _ _ _) <- loadNiveau $ "maps/" ++ name
+  window <- createWindow "Minijeu" $ defaultWindow { windowInitialSize = V2 (fromIntegral (l * size)) (fromIntegral ((h + 2) * size)) }
+  renderer <- createRenderer window (-1) defaultRenderer
+  (tmap, smap) <- loadAllSprites renderer h l size
+  let kbd = K.createKeyboard
+  gameLoop 60 renderer tmap smap kbd (GM.Game n [] GM.initInfoGame 0) 1
+
+nextLevel :: (RealFrac a, Show a) => a -> Renderer -> TextureMap -> SpriteMap -> Keyboard -> Niveau -> IO ()
 nextLevel frameRate renderer tmap smap kbd' n = do
   let (h1, h2) = Prelude.splitAt 4 (getNiveauName n)
   let lvl = read h2 :: Int
+  print ("Lancement du niveau " ++ show (lvl + 1) ++ ".")
   n' <- loadNiveau $ "maps/solo" ++ show (lvl + 1)
   let gm = GM.Game n' [] GM.initInfoGame 0
   gameLoop frameRate renderer tmap smap kbd' gm 0
@@ -224,7 +270,6 @@ displayClasse renderer tmap smap gm@(GM.Game n@(Niveau h l size m _ _) lemm _ cl
                                   (fromIntegral $ (3 * (size * 2)) + (size `div` 2)) (fromIntegral $ h * size + (size `div` 2)))
   S.displaySprite renderer tmap (S.moveTo (SM.fetchSprite (SpriteId "pelle") smap)
                                   (fromIntegral $ (4 * (size * 2)) + (size `div` 2)) (fromIntegral $ h * size + (size `div` 2)))
-
   if cl == -1
   then
     return ()
