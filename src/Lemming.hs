@@ -17,9 +17,6 @@ data State = State { coord :: Coord ,
 initState :: Int -> Int -> Deplacement -> Int -> State
 initState x y d s = State (C x y) d s
 
-initChar = Lemming (Marcheur (initState 30 30 D 2))
-initChar2 = Tombeur (initState 5 4 B 1) 0 (initState 30 30 D 2)
-
 stillAlive :: [Character] -> Bool
 stillAlive [] = False
 stillAlive (h:q) =

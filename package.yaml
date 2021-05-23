@@ -25,6 +25,7 @@ dependencies:
 - linear
 - sdl2
 - random
+- QuickCheck
 
 library:
   source-dirs: src

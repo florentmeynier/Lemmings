@@ -85,4 +85,5 @@ test-suite minijeu-test
     , random
     , sdl2
     , hspec
+    , QuickCheck
   default-language: Haskell2010

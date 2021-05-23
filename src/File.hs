@@ -12,5 +12,3 @@ loadNiveau :: String -> IO Niveau
 loadNiveau file = do
     txt <- readFile (file ++ ".niv")
     return $ read txt
-
--- >>> loadNiveau "maps/solo1"

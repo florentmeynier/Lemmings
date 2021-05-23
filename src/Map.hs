@@ -69,7 +69,7 @@ initInfoNiveau :: Int -> Int -> Int -> Int -> Int -> [Char] -> InfoNiveau
 initInfoNiveau = InfoNiveau
 
 initNiveau :: Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> [Char] -> Niveau
-initNiveau h l s delay max nb distMortel dur name = Niveau h l s (addEntreeSortie (generateMap h l)) empty (initInfoNiveau delay max nb distMortel dur name)
+initNiveau h l s delay max nb distMortel dur name = Niveau h l s (generateMap h l) empty (initInfoNiveau delay max nb distMortel dur name)
 
 generateMap :: Int -> Int -> Map Coord Case
 generateMap h l = fromList (aux 0 0 []) where
@@ -79,13 +79,6 @@ generateMap h l = fromList (aux 0 0 []) where
         | x == l = aux 0 (y + 1) list
         | y == 0 || x == 0 || y == h - 1 || x == l - 1 = aux (x + 1) y ((C x y, Metal):list)
         | otherwise = aux (x + 1) y ((C x y, Vide):list)
-
-addEntreeSortie :: Map Coord Case -> Map Coord Case
-addEntreeSortie m = insert (C 3 3) Metal (insert (C 2 3) Metal (insert (C 4 2) Metal (insert (C 3 1) Metal m)))
-
-addGround :: Map Coord Case -> Map Coord Case
-addGround m = fromList (aux (toList m) 0 ) where
-    aux l n = if n > 10 then l else aux ((C n 10, Metal):l) (n+1) 
 
 invNiveau :: Niveau -> Bool 
 invNiveau n@(Niveau h l size m _ _) = aux1 (toList m) 0 0 && aux2 0 0 where
@@ -110,6 +103,13 @@ invNiveau n@(Niveau h l size m _ _) = aux1 (toList m) 0 0 && aux2 0 0 where
         | otherwise = case m !? C x y of 
             Nothing -> False
             _ -> aux2 (x + 1) y
+
+prop_attaqueCase_pre :: Coord -> Niveau -> Bool
+prop_attaqueCase_pre c n@(Niveau _ _ _ m _ _) = 
+    case m !? c of
+        Just Terre -> True
+        _ -> False
+
 
 attaqueCase :: Coord -> Int -> Niveau -> Niveau
 attaqueCase c i n@(Niveau h l size m cass iL@(InfoNiveau _ _ _ _ dur _)) = 

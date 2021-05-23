@@ -13,6 +13,7 @@ import Movement
 data GameStatus = Pending | Playing | Win | Loose
     deriving (Eq, Show)
 
+
 data InfoGame = InfoGame {
                             nbSpawn :: Int,
                             nbExit :: Int,
@@ -27,22 +28,13 @@ data Game = Game { niveau :: Niveau,
                  }
     deriving (Eq, Show)
 
+initInfoGame = InfoGame 0 0 Playing
+
 getNiveau :: Game -> Niveau
 getNiveau (Game n _ _ _) = n
 
 getLemmings :: Game -> [Character]
 getLemmings (Game _ l _ _) = l
-
-iNiv = initNiveau 24 10 20 5 5 5 5 30 ""
-
-iMap = do
-    let Niveau _ _ _ m _ _= iNiv
-    m
-
-initInfoGame = InfoGame 0 0 Playing
-
-initGameManager :: Int -> Int -> Int -> Deplacement -> Int -> Game
-initGameManager h l size d s = Game (initNiveau h l size 5 5 5 5 30 "") [] initInfoGame 0
 
 gameStepGameManager :: Game -> Int -> Game
 gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _ _ _)) lemm infoG@(InfoGame nbSpawn nbE gs) cl) tick =
@@ -51,9 +43,12 @@ gameStepGameManager g@(Game n@(Niveau _ _ _ _ _ (InfoNiveau delay max _ _ _ _)) 
         Just c -> Game n' (c:lemm') (InfoGame (nbSpawn + 1) (nbE + List.length lemm - List.length lemm') gs) cl -- Ajout du lemming + augmente le nombre total
         Nothing -> Game n' lemm' (InfoGame nbSpawn (nbE + List.length lemm - List.length lemm') gs) cl -- Ne fait rien 
 
+prop_spawnCharacter_pre :: Game -> Bool
+prop_spawnCharacter_pre (Game n@(Niveau _ _ _ _ _ (InfoNiveau _ max _ _ _ _)) _ (InfoGame nbSpawn _ _) _) = nbSpawn < max
+
 spawnCharacter :: Game -> Int -> Maybe Character
-spawnCharacter (Game n@(Niveau _ _ size _ _ (InfoNiveau delay max _ _ _ _)) lemm (InfoGame nbSpawn nbExit _) _) tick
-    | tick `mod` delay == 0 && nbSpawn < max = -- Ajout d'un nouveau Lemming
+spawnCharacter g@(Game n@(Niveau _ _ size _ _ (InfoNiveau delay max _ _ _ _)) lemm (InfoGame nbSpawn nbExit _) _) tick
+    | tick `mod` delay == 0 && prop_spawnCharacter_pre g = -- Ajout d'un nouveau Lemming
         Just $ Lemming (Marcheur (State (mapCoordToPersoCoord (getEntree n) size) D 1))
     | otherwise = Nothing -- N'ajoute pas de nouveau Lemming
 
