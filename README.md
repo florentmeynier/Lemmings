@@ -1,4 +1,4 @@
-## Projet Lemming BOUCHENAKI
+## Projet Lemming
 
 # Projet
 
