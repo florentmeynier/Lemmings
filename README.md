@@ -1,8 +1,9 @@
-## Projet Lemming BOUCHENAKI Habib 3522424 et MEYNIER Florent 3700051
+## Projet Lemming BOUCHENAKI
 
 # Projet
 
-Jeu lemming en Haskell-SDL2, code + quelques niveaux, possibilité d'en ajouter de nouveaux 
+Projet universitaire de l'UE PAF (Programmation Avancée Fonctionnelle) réalisé en binôme.
+Jeu lemming en Haskell-SDL2
 
 ## Compilation
 
