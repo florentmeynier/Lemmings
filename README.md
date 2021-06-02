@@ -6,6 +6,7 @@ Projet universitaire de l'UE PAF (Programmation Avancée Fonctionnelle) réalis�
 Le jeu développé s'appuie sur le jeu Lemmings sortie en 1991.\
 Le but du jeu est de faire atteindre le point d'arrivé à un ou plusieurs personnages appelés Lemmings. Différents rôles peuvent être attribués aux personnages. Par exemple, un Lemming Flotteur va tomber plus doucement et ne subir aucun dégât de chute, un Lemming Creuseur peut creuser sous ses pieds, un Lemming Grimpeur peut grimper sur le mur.\
 Plusieurs niveaux sont incorporés de base de dans le jeu, mais il est possible d'importer son propre niveau sous forme de fichier en respectant une certaine structure.
+Le rapport final de ce projet est aussi disponible ("Rapport.pdf")
 
 ## Compilation
 
